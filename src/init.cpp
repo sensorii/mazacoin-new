@@ -116,7 +116,7 @@ void Shutdown()
     if (!lockShutdown)
         return;
 
-    RenameThread("mazacoin-shutoff");
+    RenameThread("bitcoin-shutoff");
     mempool.AddTransactionsUpdated(1);
     StopRPCThreads();
 #ifdef ENABLE_WALLET
@@ -382,7 +382,7 @@ struct CImportingNow
 
 void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
-    RenameThread("mazacoin-loadblk");
+    RenameThread("bitcoin-loadblk");
 
     // -reindex
     if (fReindex) {
