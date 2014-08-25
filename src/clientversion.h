@@ -29,6 +29,6 @@
 #define DO_STRINGIZE(X) #X
 
 // Copyright string used in Windows .rc files
-#define COPYRIGHT_STR          "2009-" STRINGIZE(COPYRIGHT_YEAR) " The Bitcoin Core Developers"
+#define COPYRIGHT_STR          "2009-" STRINGIZE(COPYRIGHT_YEAR) " The Mazacoin Developers"
 
 #endif // CLIENTVERSION_H
