@@ -14,6 +14,7 @@
 #include "coins.h"
 #include "core.h"
 #include "net.h"
+#include "pow.h"
 #include "script.h"
 #include "sync.h"
 #include "txmempool.h"
@@ -160,10 +161,8 @@ std::string GetWarnings(std::string strFor);
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, bool fAllowSlow = false);
 /** Find the best known block, and make it the tip of the block chain */
-bool ActivateBestChain(CValidationState &state);
+bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 int64_t GetBlockValue(int nHeight, int64_t nFees);
-
-void UpdateTime(CBlockHeader& block, const CBlockIndex* pindexPrev);
 
 /** Create a new block index entry for a given block hash */
 CBlockIndex * InsertBlockIndex(uint256 hash);
@@ -198,10 +197,13 @@ struct CDiskBlockPos
     int nFile;
     unsigned int nPos;
 
-    IMPLEMENT_SERIALIZE(
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(VARINT(nFile));
         READWRITE(VARINT(nPos));
-    )
+    }
 
     CDiskBlockPos() {
         SetNull();
@@ -228,10 +230,13 @@ struct CDiskTxPos : public CDiskBlockPos
 {
     unsigned int nTxOffset; // after header
 
-    IMPLEMENT_SERIALIZE(
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*(CDiskBlockPos*)this);
         READWRITE(VARINT(nTxOffset));
-    )
+    }
 
     CDiskTxPos(const CDiskBlockPos &blockIn, unsigned int nTxOffsetIn) : CDiskBlockPos(blockIn.nFile, blockIn.nPos), nTxOffset(nTxOffsetIn) {
     }
@@ -265,7 +270,7 @@ int64_t GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowF
     @param[in] mapInputs    Map of previous transactions that have outputs we're spending
     @return True if all inputs (scriptSigs) use only standard transaction forms
 */
-bool AreInputsStandard(const CTransaction& tx, CCoinsViewCache& mapInputs);
+bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 /** Count ECDSA signature operations the old-fashioned (pre-0.6) way
     @return number of sigops this transaction's outputs will produce when spent
@@ -279,13 +284,13 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx);
     @return maximum number of sigops required to validate this transaction's inputs
     @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, CCoinsViewCache& mapInputs);
+unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 
 // Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
 // This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
 // instead of being performed inline.
-bool CheckInputs(const CTransaction& tx, CValidationState &state, CCoinsViewCache &view, bool fScriptChecks = true,
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks = true,
                  unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS,
                  std::vector<CScriptCheck> *pvChecks = NULL);
 
@@ -308,68 +313,15 @@ class CBlockUndo
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
 
-    IMPLEMENT_SERIALIZE(
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(vtxundo);
-    )
-
-    bool WriteToDisk(CDiskBlockPos &pos, const uint256 &hashBlock)
-    {
-        // Open history file to append
-        CAutoFile fileout = CAutoFile(OpenUndoFile(pos), SER_DISK, CLIENT_VERSION);
-        if (!fileout)
-            return error("CBlockUndo::WriteToDisk : OpenUndoFile failed");
-
-        // Write index header
-        unsigned int nSize = fileout.GetSerializeSize(*this);
-        fileout << FLATDATA(Params().MessageStart()) << nSize;
-
-        // Write undo data
-        long fileOutPos = ftell(fileout);
-        if (fileOutPos < 0)
-            return error("CBlockUndo::WriteToDisk : ftell failed");
-        pos.nPos = (unsigned int)fileOutPos;
-        fileout << *this;
-
-        // calculate & write checksum
-        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
-        hasher << hashBlock;
-        hasher << *this;
-        fileout << hasher.GetHash();
-
-        // Flush stdio buffers and commit to disk before returning
-        fflush(fileout);
-        if (!IsInitialBlockDownload())
-            FileCommit(fileout);
-
-        return true;
     }
 
-    bool ReadFromDisk(const CDiskBlockPos &pos, const uint256 &hashBlock)
-    {
-        // Open history file to read
-        CAutoFile filein = CAutoFile(OpenUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
-        if (!filein)
-            return error("CBlockUndo::ReadFromDisk : OpenBlockFile failed");
-
-        // Read block
-        uint256 hashChecksum;
-        try {
-            filein >> *this;
-            filein >> hashChecksum;
-        }
-        catch (std::exception &e) {
-            return error("%s : Deserialize or I/O error - %s", __func__, e.what());
-        }
-
-        // Verify checksum
-        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
-        hasher << hashBlock;
-        hasher << *this;
-        if (hashChecksum != hasher.GetHash())
-            return error("CBlockUndo::ReadFromDisk : Checksum mismatch");
-
-        return true;
-    }
+    bool WriteToDisk(CDiskBlockPos &pos, const uint256 &hashBlock);
+    bool ReadFromDisk(const CDiskBlockPos &pos, const uint256 &hashBlock);
 };
 
 
@@ -385,7 +337,7 @@ private:
     int nHashType;
 
 public:
-    CScriptCheck() {}
+    CScriptCheck(): ptxTo(0), nIn(0), nFlags(0), nHashType(0) {}
     CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, int nHashTypeIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
         ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), nHashType(nHashTypeIn) { }
@@ -400,66 +352,6 @@ public:
         std::swap(nHashType, check.nHashType);
     }
 };
-
-/** A transaction with a merkle branch linking it to the block chain. */
-class CMerkleTx : public CTransaction
-{
-private:
-    int GetDepthInMainChainINTERNAL(CBlockIndex* &pindexRet) const;
-
-public:
-    uint256 hashBlock;
-    std::vector<uint256> vMerkleBranch;
-    int nIndex;
-
-    // memory only
-    mutable bool fMerkleVerified;
-
-
-    CMerkleTx()
-    {
-        Init();
-    }
-
-    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn)
-    {
-        Init();
-    }
-
-    void Init()
-    {
-        hashBlock = 0;
-        nIndex = -1;
-        fMerkleVerified = false;
-    }
-
-
-    IMPLEMENT_SERIALIZE
-    (
-        nSerSize += SerReadWrite(s, *(CTransaction*)this, nType, nVersion, ser_action);
-        nVersion = this->nVersion;
-        READWRITE(hashBlock);
-        READWRITE(vMerkleBranch);
-        READWRITE(nIndex);
-    )
-
-
-    int SetMerkleBranch(const CBlock* pblock=NULL);
-
-    // Return depth of transaction in blockchain:
-    // -1  : not in blockchain, and not in memory pool (conflicted transaction)
-    //  0  : in memory pool, waiting to be included in a block
-    // >=1 : this many blocks deep in the main chain
-    int GetDepthInMainChain(CBlockIndex* &pindexRet) const;
-    int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
-    bool IsInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
-    int GetBlocksToMaturity() const;
-    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectInsaneFee=true);
-};
-
-
-
-
 
 /** Data structure that represents a partial merkle tree.
  *
@@ -528,7 +420,12 @@ protected:
 public:
 
     // serialization implementation
-    IMPLEMENT_SERIALIZE(
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        bool fRead = ser_action.ForRead();
+
         READWRITE(nTransactions);
         READWRITE(vHash);
         std::vector<unsigned char> vBytes;
@@ -545,7 +442,7 @@ public:
                 vBytes[p / 8] |= vBits[p] << (p % 8);
             READWRITE(vBytes);
         }
-    )
+    }
 
     // Construct a partial merkle tree from a list of transaction id's, and a mask that selects a subset of them
     CPartialMerkleTree(const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch);
@@ -601,7 +498,10 @@ public:
     uint64_t nTimeFirst;         // earliest time of block in file
     uint64_t nTimeLast;          // latest time of block in file
 
-    IMPLEMENT_SERIALIZE(
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(VARINT(nBlocks));
         READWRITE(VARINT(nSize));
         READWRITE(VARINT(nUndoSize));
@@ -609,7 +509,7 @@ public:
         READWRITE(VARINT(nHeightLast));
         READWRITE(VARINT(nTimeFirst));
         READWRITE(VARINT(nTimeLast));
-     )
+    }
 
      void SetNull() {
          nBlocks = 0;
@@ -625,9 +525,7 @@ public:
          SetNull();
      }
 
-     std::string ToString() const {
-         return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, DateTimeStrFormat("%Y-%m-%d", nTimeFirst).c_str(), DateTimeStrFormat("%Y-%m-%d", nTimeLast).c_str());
-     }
+     std::string ToString() const;
 
      // update statistics (does not update nSize)
      void AddBlock(unsigned int nHeightIn, uint64_t nTimeIn) {
@@ -794,17 +692,7 @@ public:
 
     uint256 GetBlockWork() const
     {
-        uint256 bnTarget;
-        bool fNegative;
-        bool fOverflow;
-        bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
-        if (fNegative || fOverflow || bnTarget == 0)
-            return 0;
-        // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
-        // as it's too large for a uint256. However, as 2**256 is at least as large
-        // as bnTarget+1, it is equal to ((2**256 - bnTarget - 1) / (bnTarget+1)) + 1,
-        // or ~bnTarget / (nTarget+1) + 1.
-        return (~bnTarget / (bnTarget + 1)) + 1;
+        return GetProofIncrement(nBits);
     }
 
     enum { nMedianTimeSpan=11 };
@@ -884,8 +772,10 @@ public:
         hashPrev = (pprev ? pprev->GetBlockHash() : 0);
     }
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!(nType & SER_GETHASH))
             READWRITE(VARINT(nVersion));
 
@@ -906,7 +796,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
-    )
+    }
 
     uint256 GetBlockHash() const
     {
@@ -945,7 +835,7 @@ private:
     unsigned char chRejectCode;
     bool corruptionPossible;
 public:
-    CValidationState() : mode(MODE_VALID), nDoS(0), corruptionPossible(false) {}
+    CValidationState() : mode(MODE_VALID), nDoS(0), chRejectCode(0), corruptionPossible(false) {}
     bool DoS(int level, bool ret = false,
              unsigned char chRejectCodeIn=0, std::string strRejectReasonIn="",
              bool corruptionIn=false) {
@@ -1000,7 +890,7 @@ class CVerifyDB {
 public:
     CVerifyDB();
     ~CVerifyDB();
-    bool VerifyDB(int nCheckLevel, int nCheckDepth);
+    bool VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
 };
 
 /** An in-memory indexed chain of blocks. */
@@ -1104,11 +994,13 @@ public:
     // thus the filter will likely be modified.
     CMerkleBlock(const CBlock& block, CBloomFilter& filter);
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(header);
         READWRITE(txn);
-    )
+    }
 };
 
 
@@ -1125,4 +1017,4 @@ protected:
     friend void ::UnregisterAllWallets();
 };
 
-#endif
+#endif // BITCOIN_MAIN_H

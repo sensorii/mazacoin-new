@@ -2,6 +2,7 @@
 // Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_WALLET_H
 #define BITCOIN_WALLET_H
 
@@ -11,7 +12,6 @@
 #include "keystore.h"
 #include "main.h"
 #include "ui_interface.h"
-#include "util.h"
 #include "walletdb.h"
 
 #include <algorithm>
@@ -61,24 +61,18 @@ public:
     int64_t nTime;
     CPubKey vchPubKey;
 
-    CKeyPool()
-    {
-        nTime = GetTime();
-    }
+    CKeyPool();
+    CKeyPool(const CPubKey& vchPubKeyIn);
 
-    CKeyPool(const CPubKey& vchPubKeyIn)
-    {
-        nTime = GetTime();
-        vchPubKey = vchPubKeyIn;
-    }
+    IMPLEMENT_SERIALIZE;
 
-    IMPLEMENT_SERIALIZE
-    (
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!(nType & SER_GETHASH))
             READWRITE(nVersion);
         READWRITE(nTime);
         READWRITE(vchPubKey);
-    )
+    }
 };
 
 /** Address book data */
@@ -408,6 +402,9 @@ public:
 
     /** Show progress e.g. for rescan */
     boost::signals2::signal<void (const std::string &title, int nProgress)> ShowProgress;
+
+    /** Watch-only address added */
+    boost::signals2::signal<void (bool fHaveWatchOnly)> NotifyWatchonlyChanged;
 };
 
 /** A key allocated from the key pool. */
@@ -461,6 +458,62 @@ struct COutputEntry
     CTxDestination destination;
     int64_t amount;
     int vout;
+};
+
+/** A transaction with a merkle branch linking it to the block chain. */
+class CMerkleTx : public CTransaction
+{
+private:
+    int GetDepthInMainChainINTERNAL(CBlockIndex* &pindexRet) const;
+
+public:
+    uint256 hashBlock;
+    std::vector<uint256> vMerkleBranch;
+    int nIndex;
+
+    // memory only
+    mutable bool fMerkleVerified;
+
+
+    CMerkleTx()
+    {
+        Init();
+    }
+
+    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn)
+    {
+        Init();
+    }
+
+    void Init()
+    {
+        hashBlock = 0;
+        nIndex = -1;
+        fMerkleVerified = false;
+    }
+
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(*(CTransaction*)this);
+        nVersion = this->nVersion;
+        READWRITE(hashBlock);
+        READWRITE(vMerkleBranch);
+        READWRITE(nIndex);
+    }
+
+    int SetMerkleBranch(const CBlock* pblock=NULL);
+
+    // Return depth of transaction in blockchain:
+    // -1  : not in blockchain, and not in memory pool (conflicted transaction)
+    //  0  : in memory pool, waiting to be included in a block
+    // >=1 : this many blocks deep in the main chain
+    int GetDepthInMainChain(CBlockIndex* &pindexRet) const;
+    int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
+    bool IsInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
+    int GetBlocksToMaturity() const;
+    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectInsaneFee=true);
 };
 
 /** A transaction with a bunch of additional info that only the owner cares about.
@@ -552,8 +605,12 @@ public:
         nOrderPos = -1;
     }
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        bool fRead = ser_action.ForRead();
+
         CWalletTx* pthis = const_cast<CWalletTx*>(this);
         if (fRead)
             pthis->Init(NULL);
@@ -569,7 +626,7 @@ public:
                 pthis->mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        nSerSize += SerReadWrite(s, *(CMerkleTx*)this, nType, nVersion,ser_action);
+        READWRITE(*(CMerkleTx*)this);
         std::vector<CMerkleTx> vUnused; // Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
@@ -588,12 +645,12 @@ public:
             pthis->nTimeSmart = mapValue.count("timesmart") ? (unsigned int)atoi64(pthis->mapValue["timesmart"]) : 0;
         }
 
-        pthis->mapValue.erase("fromaccount");
-        pthis->mapValue.erase("version");
-        pthis->mapValue.erase("spent");
-        pthis->mapValue.erase("n");
-        pthis->mapValue.erase("timesmart");
-    )
+        mapValue.erase("fromaccount");
+        mapValue.erase("version");
+        mapValue.erase("spent");
+        mapValue.erase("n");
+        mapValue.erase("timesmart");
+    }
 
     // make sure balances are recalculated
     void MarkDirty()
@@ -820,10 +877,7 @@ public:
         tx = txIn; i = iIn; nDepth = nDepthIn; fSpendable = fSpendableIn;
     }
 
-    std::string ToString() const
-    {
-        return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->vout[i].nValue).c_str());
-    }
+    std::string ToString() const;
 };
 
 
@@ -840,21 +894,19 @@ public:
     //// todo: add something to note what created it (user, getnewaddress, change)
     ////   maybe should have a map<string, string> property map
 
-    CWalletKey(int64_t nExpires=0)
-    {
-        nTimeCreated = (nExpires ? GetTime() : 0);
-        nTimeExpires = nExpires;
-    }
+    CWalletKey(int64_t nExpires=0);
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!(nType & SER_GETHASH))
             READWRITE(nVersion);
         READWRITE(vchPrivKey);
         READWRITE(nTimeCreated);
         READWRITE(nTimeExpires);
         READWRITE(LIMITED_STRING(strComment, 65536));
-    )
+    }
 };
 
 
@@ -880,12 +932,14 @@ public:
         vchPubKey = CPubKey();
     }
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!(nType & SER_GETHASH))
             READWRITE(nVersion);
         READWRITE(vchPubKey);
-    )
+    }
 };
 
 
@@ -918,10 +972,15 @@ public:
         strOtherAccount.clear();
         strComment.clear();
         nOrderPos = -1;
+        nEntryNo = 0;
     }
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        bool fRead = ser_action.ForRead();
+
         CAccountingEntry& me = *const_cast<CAccountingEntry*>(this);
         if (!(nType & SER_GETHASH))
             READWRITE(nVersion);
@@ -961,11 +1020,11 @@ public:
         if (std::string::npos != nSepPos)
             me.strComment.erase(nSepPos);
 
-        me.mapValue.erase("n");
-    )
+        mapValue.erase("n");
+    }
 
 private:
     std::vector<char> _ssExtra;
 };
 
-#endif
+#endif // BITCOIN_WALLET_H

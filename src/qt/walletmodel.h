@@ -59,8 +59,12 @@ public:
     static const int CURRENT_VERSION = 1;
     int nVersion;
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        bool fRead = ser_action.ForRead();
+
         SendCoinsRecipient* pthis = const_cast<SendCoinsRecipient*>(this);
 
         std::string sAddress = pthis->address.toStdString();
@@ -89,7 +93,7 @@ public:
                 pthis->paymentRequest.parse(QByteArray::fromRawData(sPaymentRequest.data(), sPaymentRequest.size()));
             pthis->authenticatedMerchant = QString::fromStdString(sAuthenticatedMerchant);
         }
-    )
+    }
 };
 
 /** Interface to Bitcoin wallet from Qt view code. */
@@ -128,6 +132,7 @@ public:
     qint64 getBalance(const CCoinControl *coinControl = NULL) const;
     qint64 getUnconfirmedBalance() const;
     qint64 getImmatureBalance() const;
+    bool haveWatchOnly() const;
     qint64 getWatchBalance() const;
     qint64 getWatchUnconfirmedBalance() const;
     qint64 getWatchImmatureBalance() const;
@@ -197,6 +202,7 @@ public:
 private:
     CWallet *wallet;
     bool fProcessingQueuedTransactions;
+    bool fHaveWatchOnly;
 
     // Wallet has an options model for wallet-specific options
     // (transaction fee, for example)
@@ -244,6 +250,9 @@ signals:
     // Show progress dialog e.g. for rescan
     void showProgress(const QString &title, int nProgress);
 
+    // Watch-only address added
+    void notifyWatchonlyChanged(bool fHaveWatchonly);
+
 public slots:
     /* Wallet status might have changed */
     void updateStatus();
@@ -251,6 +260,8 @@ public slots:
     void updateTransaction(const QString &hash, int status);
     /* New, updated or removed address book entry */
     void updateAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
+    /* Watchonly added */
+    void updateWatchOnlyFlag(bool fHaveWatchonly);
     /* Current, immature or unconfirmed balance might have changed - emit 'balanceChanged' if so */
     void pollBalanceChanged();
     /* Needed to update fProcessingQueuedTransactions through a QueuedConnection */

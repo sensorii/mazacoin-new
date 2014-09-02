@@ -109,6 +109,9 @@ BITCOIN_CORE_H = \
   ui_interface.h \
   uint256.h \
   util.h \
+  utilstrencodings.h \
+  utilmoneystr.h \
+  utiltime.h \
   version.h \
   walletdb.h \
   wallet.h \
@@ -131,8 +134,8 @@ obj/build.h: FORCE
 	  $(abs_top_srcdir)
 libmazacoin_util_a-version.$(OBJEXT): obj/build.h
 
-# server: shared between mazacoind and mazacoin-qt
-libmazacoin_server_a_CPPFLAGS = $(BITCOIN_INCLUDES)
+# server: shared between bitcoind and bitcoin-qt
+libmazacoin_server_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS)
 libmazacoin_server_a_SOURCES = \
   addrman.cpp \
   alert.cpp \
@@ -219,6 +222,9 @@ libmazacoin_util_a_SOURCES = \
   sync.cpp \
   uint256.cpp \
   util.cpp \
+  utilstrencodings.cpp \
+  utilmoneystr.cpp \
+  utiltime.cpp \
   version.cpp \
   $(BITCOIN_CORE_H)
 
