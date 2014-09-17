@@ -146,6 +146,8 @@ bool CheckDiskSpace(uint64_t nAdditionalBytes = 0);
 FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Open an undo file (rev?????.dat) */
 FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+/** Translation to a filesystem path */
+boost::filesystem::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix);
 /** Import blocks from an external file */
 bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = NULL);
 /** Initialize a new block tree database + block data on disk */
@@ -174,8 +176,6 @@ int64_t GetBlockValue(int nHeight, int64_t nFees);
 
 /** Create a new block index entry for a given block hash */
 CBlockIndex * InsertBlockIndex(uint256 hash);
-/** Verify a signature */
-bool VerifySignature(const CCoins& txFrom, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType);
 /** Abort with a message */
 bool AbortNode(const std::string &msg);
 /** Get statistics from node state */
@@ -342,13 +342,12 @@ private:
     const CTransaction *ptxTo;
     unsigned int nIn;
     unsigned int nFlags;
-    int nHashType;
 
 public:
-    CScriptCheck(): ptxTo(0), nIn(0), nFlags(0), nHashType(0) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, int nHashTypeIn) :
+    CScriptCheck(): ptxTo(0), nIn(0), nFlags(0) {}
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
-        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), nHashType(nHashTypeIn) { }
+        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn) { }
 
     bool operator()() const;
 
@@ -357,7 +356,6 @@ public:
         std::swap(ptxTo, check.ptxTo);
         std::swap(nIn, check.nIn);
         std::swap(nFlags, check.nFlags);
-        std::swap(nHashType, check.nHashType);
     }
 };
 
