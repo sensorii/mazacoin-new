@@ -143,14 +143,13 @@ public:
         nTargetSpacing = 120;
 
         // Modify the testnet genesis block so the timestamp is valid for a later start.
-        genesis.nTime = 1390747675;
-        genesis.nNonce = 2091390249;
+        genesis.nTime = 1411587941;
+        genesis.nNonce = 2091634749;
         hashGenesisBlock = genesis.GetHash();
-        assert(hashGenesisBlock == uint256("0x00000c7c73d8ce604178dae13f0fc6ec0be3275614366d44b1b4b5c6e238c60c"));
+        assert(hashGenesisBlock == uint256("0x000003ae7f631de18a457fa4fa078e6fa8aff38e258458f8189810de5d62cede"));
 
         vFixedSeeds.clear();
-        vSeeds.clear();
-        // vSeeds.push_back(CDNSSeedData("mazacoin.test", "test.mazacoin.org"));
+        vSeeds.clear();vSeeds.push_back(CDNSSeedData("mazatest.cryptoadhd.com", "mazatest.cryptoadhd.com"));
 
         base58Prefixes[PUBKEY_ADDRESS] = list_of(88);
         base58Prefixes[SCRIPT_ADDRESS] = list_of(188);

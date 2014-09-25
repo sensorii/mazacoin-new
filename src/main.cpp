@@ -1182,22 +1182,32 @@ int64_t nMinSubsidy = 1 * COIN;
 int64_t GetBlockValue(int nHeight, int64_t nFees)
 {
     int64_t nSubsidy = 5000 * COIN;
-    int halvings = (nHeight-100000) / Params().SubsidyHalvingInterval();
+	int halvings;
+	if (Params().AllowMinDifficultyBlocks()) {
+		halvings = (nHeight-10) / Params().SubsidyHalvingInterval();
+              
+		if (nHeight >= 10)
+		{
+			nSubsidy = nSubsidy / 5;
+		}
+		
+    } else {
+		
+		halvings = (nHeight-100000) / Params().SubsidyHalvingInterval();
+		if (nHeight >= 100000)
+		{
+			nSubsidy = nSubsidy / 5;
+		}
+	}
+	nSubsidy >>= halvings;
+	if (nSubsidy < nMinSubsidy)
+	{
+		nSubsidy = nMinSubsidy;
+	}
 
-    if (nHeight >= 100000)
-    {
-        nSubsidy = nSubsidy / 5;
-    }
-
-    nSubsidy >>= halvings;
-    if (nSubsidy < nMinSubsidy)
-    {
-        nSubsidy = nMinSubsidy;
-    }
-
-    return nSubsidy + nFees;
+	return nSubsidy + nFees;
+	
 }
-
 bool IsInitialBlockDownload()
 {
     LOCK(cs_main);
