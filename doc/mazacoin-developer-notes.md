@@ -27,7 +27,6 @@ Total coin mined: 2.398 billion MZC + yearly inflation
 ```javascript
 {
     "hash" : "00000c7c73d8ce604178dae13f0fc6ec0be3275614366d44b1b4b5c6e238c60c",
-    "confirmations" : 15420,
     "size" : 285,
     "height" : 0,
     "version" : 1,
