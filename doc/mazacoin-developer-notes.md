@@ -34,7 +34,7 @@ Total coin mined: 2.398 billion MZC + yearly inflation
     "tx" : [
         "62d496378e5834989dd9594cfc168dbb76f84a39bbda18286cddc7d1d1589f4f"
     ],
-    "time" : 1390747675,
+    "time" : 1390747675, // Sun, 26 Jan 2014 14:47:55 GMT
     "nonce" : 2091390249,
     "bits" : "1e0ffff0",
     "difficulty" : 0.00024414,
