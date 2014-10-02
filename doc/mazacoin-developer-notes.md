@@ -15,6 +15,9 @@ Total coin mined: 2.398 billion MZC + yearly inflation
 
 2.398 billion coins will be mined in approx. 36yrs
 
+---
+## Main Network
+
 ### Ports
 | service/protocol | port  |
 | ---------------- | ----- |
@@ -41,4 +44,29 @@ Total coin mined: 2.398 billion MZC + yearly inflation
     "chainwork" : "0000000000000000000000000000000000000000000000000000000000100010",
     "nextblockhash" : "000000003302fe58f139f1d45f3a0a67601d39e63b82bc4918f48b8cd5df6ab0"
 }
+```
+
+packetMagic: 0xF8B503DF
+```C
+pchMessageStart[0] = 0xf8;
+pchMessageStart[1] = 0xb5;
+pchMessageStart[2] = 0x03;
+pchMessageStart[3] = 0xdf;
+```
+
+---
+## Test Network
+
+### Ports
+| service/protocol | port  |
+| ---------------- | ----- |
+| RPC              | 11835 |
+| P2P              | 11444 |
+| p2pool           | ????? |
+
+```C
+pchMessageStart[0] = 0x05;
+pchMessageStart[1] = 0xfe;
+pchMessageStart[2] = 0xa9;
+pchMessageStart[3] = 0x01;
 ```
