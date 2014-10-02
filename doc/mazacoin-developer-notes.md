@@ -1,14 +1,45 @@
 Mazacoin Developer Notes
 ========================
 
-Algorithm: SHA256
-Block Reward: 1000MZC
-Block Time: 2min
-Reward Halving: 950,000 blocks
-Min Block Rewad: 1MZC
+### Mining
+| | |
+| ------------------- | ------------------------------------ |
+| Algorithm           | SHA256                               |
+| Block Reward        | 1000 MZC                             |
+| Block Time          | 2 minutes                            |
+| Reward Halving      | 950,000 blocks                       |
+| Min Block Rewad     | 1 MZC                                |
+| Difficulty Retarget | every 1 block using DarkGravityWave3 |
+
 Total coin mined: 2.398 billion MZC + yearly inflation
+
 2.398 billion coins will be mined in approx. 36yrs
-Difficulty Re-Targets every 1 block using DarkGravityWave3
-RPC Port: 12835
-P2P Port: 12832
-p2pool Port: 14476
+
+### Ports
+| service/protocol | port  |
+| ---------------- | ----- |
+| RPC              | 12835 |
+| P2P              | 12832 |
+| p2pool           | 14476 |
+
+
+### Genesis Block
+```javascript
+{
+    "hash" : "00000c7c73d8ce604178dae13f0fc6ec0be3275614366d44b1b4b5c6e238c60c",
+    "confirmations" : 15420,
+    "size" : 285,
+    "height" : 0,
+    "version" : 1,
+    "merkleroot" : "62d496378e5834989dd9594cfc168dbb76f84a39bbda18286cddc7d1d1589f4f",
+    "tx" : [
+        "62d496378e5834989dd9594cfc168dbb76f84a39bbda18286cddc7d1d1589f4f"
+    ],
+    "time" : 1390747675,
+    "nonce" : 2091390249,
+    "bits" : "1e0ffff0",
+    "difficulty" : 0.00024414,
+    "chainwork" : "0000000000000000000000000000000000000000000000000000000000100010",
+    "nextblockhash" : "000000003302fe58f139f1d45f3a0a67601d39e63b82bc4918f48b8cd5df6ab0"
+}
+```
