@@ -62,7 +62,6 @@ pchMessageStart[3] = 0xdf;
 | ---------------- | ----- |
 | RPC              | 11835 |
 | P2P              | 11444 |
-| p2pool           | ????? |
 
 ```C
 pchMessageStart[0] = 0x05;
