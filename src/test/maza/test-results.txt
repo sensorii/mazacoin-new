@@ -1,0 +1,38 @@
+TEST	ERRORS
+accounting_tests	*** No errors detected
+alert_tests	Test setup error: no test cases matching filter
+allocator_tests	*** No errors detected
+base32_tests	*** No errors detected
+base58_tests	127
+base64_tests	*** No errors detected
+bloom_tests	1
+canonical_tests	*** No errors detected
+checkblock_tests	Test setup error: no test cases matching filter
+Checkpoints_tests	3
+compress_tests	*** No errors detected
+crypto_tests	*** No errors detected
+DoS_tests	1
+getarg_tests	*** No errors detected
+hash_tests	*** No errors detected
+key_tests	8
+main_tests	18847
+miner_tests	221
+mruset_tests	*** No errors detected
+multisig_tests	*** No errors detected
+netbase_tests	*** No errors detected
+pmt_tests	*** No errors detected
+rpc_tests	1
+rpc_wallet_tests	2
+scriptnum_tests	*** No errors detected
+script_P2SH_tests	*** No errors detected
+script_tests	*** No errors detected
+serialize_tests	*** No errors detected
+sighash_tests	*** No errors detected
+sigopcount_tests	*** No errors detected
+skiplist_tests	*** No errors detected
+timedata_tests	*** No errors detected
+transaction_tests	*** No errors detected
+uint256_tests	*** No errors detected
+univalue_tests	*** No errors detected
+util_tests	*** No errors detected
+wallet_tests	*** No errors detected
