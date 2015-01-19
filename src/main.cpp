@@ -1222,6 +1222,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
 
 CAmount GetBlockValue(int nHeight, const CAmount& nFees)
 {
+    CAmount nMinSubsidy = 1 * COIN;
     CAmount nSubsidy = 5000 * COIN;
     int halvings;
 
